@@ -4,6 +4,10 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Exclude skipped tasks and subtasks from pending counts so they no longer block goal completion (#110).
+
 ## [0.34.0] — 2026-10-24
 
 Includes #107.

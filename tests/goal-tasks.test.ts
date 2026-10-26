@@ -16,6 +16,7 @@ import {
 	validateTaskSkip,
 	validateTaskListProposal,
 } from "../extensions/goal-policy.ts";
+import { countTaskSubtree } from "../extensions/goal-task-count.ts";
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,29 @@ test("buildTaskSummary: all complete", () => {
 	assert.equal(result, "2/2 tasks complete");
 });
 
+// ── countTaskSubtree ──────────────────────────────────────────────────────────
+
+test("countTaskSubtree: pending excludes skipped tasks and subtasks regardless of doneIncludesSkipped", () => {
+	const tasks = [
+		{
+			id: "t1", title: "Task 1", status: "complete" as const,
+			subtasks: [{ id: "t1a", title: "Sub A", status: "skipped" as const }],
+		},
+		{ id: "t2", title: "Task 2", status: "skipped" as const },
+		{ id: "t3", title: "Task 3", status: "pending" as const },
+	];
+	for (const doneIncludesSkipped of [undefined, false, true]) {
+		const result = countTaskSubtree(tasks, { doneIncludesSkipped, collectPending: true });
+		assert.deepEqual(result, {
+			total: 4,
+			complete: doneIncludesSkipped ? 3 : 1,
+			skipped: 2,
+			pending: 1,
+			pendingTasks: [tasks[2]],
+		});
+	}
+});
+
 // ── taskCompletionBlockWarning ────────────────────────────────────────────────
 
 test("taskCompletionBlockWarning: no blockCompletion returns null", () => {
@@ -133,6 +157,31 @@ test("taskCompletionBlockWarning: blockCompletion with pending returns warning",
 	assert.ok(result);
 	assert.match(result, /pending/);
 	assert.match(result, /blockCompletion/);
+});
+
+test("taskCompletionBlockWarning: complete and skipped tasks return null", () => {
+	const result = taskCompletionBlockWarning({
+		tasks: [
+			{ id: "t1", title: "Task 1", status: "complete" },
+			{ id: "t2", title: "Task 2", status: "skipped" },
+		],
+		blockCompletion: true,
+		proposedAt: "2026-05-27T00:00:00.000Z",
+	});
+	assert.equal(result, null);
+});
+
+test("taskCompletionBlockWarning: pending task still blocks alongside skipped tasks", () => {
+	const result = taskCompletionBlockWarning({
+		tasks: [
+			{ id: "t1", title: "Task 1", status: "complete" },
+			{ id: "t2", title: "Task 2", status: "skipped" },
+			{ id: "t3", title: "Task 3", status: "pending" },
+		],
+		blockCompletion: true,
+		proposedAt: "2026-05-27T00:00:00.000Z",
+	});
+	assert.equal(result, "1 task still pending with blockCompletion enabled. Complete or skip all pending tasks before finishing the goal.");
 });
 
 test("taskCompletionBlockWarning: plural tasks", () => {
